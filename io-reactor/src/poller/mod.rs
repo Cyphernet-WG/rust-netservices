@@ -12,6 +12,7 @@ pub struct IoEv {
     pub is_readable: bool,
     /// Specifies whether I/O source is ready for write operations.
     pub is_writable: bool,
+    // cloudhead: How about error and hangup?
 }
 
 impl IoEv {
@@ -41,6 +42,7 @@ impl Iterator for IoEv {
     type Item = Io;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // cloudhead: What if it's both readable and writable?
         if self.is_writable {
             self.is_writable = false;
             Some(Io::Write)

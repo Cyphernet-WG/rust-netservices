@@ -111,6 +111,8 @@ impl<L: NetListener<Stream = S::Connection>, S: NetSession> Resource for NetAcce
 }
 
 pub enum SessionEvent<S: NetSession> {
+    // cloudhead: It would be useful for the service to know that a connection was established
+    // with the peer, ie. a `Connected` event.
     Established(S::Id),
     Data(Vec<u8>),
     Terminated(io::Error),
@@ -118,6 +120,8 @@ pub enum SessionEvent<S: NetSession> {
 
 #[derive(Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum TransportState {
+    // cloudhead: There's a missing state here? ie. "connecting": the socket may be created,
+    // but the connection isn't yet established.
     Handshake,
     Active,
     Terminated,
@@ -200,7 +204,9 @@ impl<S: NetSession> NetTransport<S> {
     fn upgrade(mut session: S, inbound: bool) -> io::Result<Self> {
         session.set_read_timeout(Some(READ_TIMEOUT))?;
         session.set_write_timeout(Some(WRITE_TIMEOUT))?;
-        session.set_nonblocking(true)?;
+        session.set_nonblocking(true)?; // cloudhead: This is already set in `S::connect`,
+                                        // perhaps read/write timeout should be set there as well,
+                                        // then there's no need to "upgrade".
         Ok(Self {
             state: TransportState::Handshake,
             session,
@@ -215,7 +221,8 @@ impl<S: NetSession> NetTransport<S> {
 
     pub fn connect(addr: S::PeerAddr, context: &S::Context) -> io::Result<Self> {
         let session = S::connect(addr, context)?;
-        let mut me = Self::upgrade(session, true)?;
+        let mut me = Self::upgrade(session, true)?; // cloudhead: `true` is for inbound, but inbound
+                                                    // is false?
         me.inbound = false;
         Ok(me)
     }
@@ -259,6 +266,7 @@ impl<S: NetSession> NetTransport<S> {
             "read on terminated transport"
         );
         self.needs_flush = false;
+        // cloudhead: How do we know that the connection is established?
         match self.session.flush_nonblocking() {
             IoStatus::Success(_) | IoStatus::WouldBlock => None,
             IoStatus::Shutdown => Some(SessionEvent::Terminated(io::ErrorKind::WriteZero.into())),

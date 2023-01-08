@@ -205,6 +205,7 @@ impl<S: Handler> Controller<S> {
 fn reset_fd(fd: &impl AsRawFd) -> io::Result<()> {
     let mut buf = [0u8; 4096];
 
+    // cloudhead: Why is this not calling popol? This is different for all wakers.
     loop {
         // We use a low-level "read" here because the alternative is to create a `UnixStream`
         // from the `RawFd`, which has "drop" semantics which we want to avoid.
@@ -269,6 +270,8 @@ impl<H: Handler, P: Poll> Runtime<H, P> {
             if count > 0 {
                 self.handle_events(instant);
             }
+            // cloudhead: We should only check this if the waker woke us up.
+            // cloudhead: It would be good to use `try_iter` here.
             loop {
                 match self.cmd_recv.try_recv() {
                     Err(chan::TryRecvError::Empty) => break,
@@ -276,6 +279,8 @@ impl<H: Handler, P: Poll> Runtime<H, P> {
                     Ok(cmd) => self.service.handle_command(cmd),
                 }
             }
+            // cloudhead: We should only check this if the waker woke us up.
+            // cloudhead: It would be good to use `try_iter` here.
             loop {
                 match self.ctl_recv.try_recv() {
                     Err(chan::TryRecvError::Empty) => break,
